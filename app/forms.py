@@ -56,8 +56,8 @@ class ProductForm(FlaskForm):
         ('л', 'Литр')
     ], validators=[DataRequired()])
     price = FloatField('Цена', validators=[DataRequired(), NumberRange(min=0)])
-    category_id = SelectField('Категория', coerce=int, validators=[DataRequired()])
-    supplier_id = SelectField('Поставщик', coerce=int, validators=[DataRequired()])
+    category_id = SelectField('Категория', coerce=int, validators=[DataRequired()], choices=[])
+    supplier_id = SelectField('Поставщик', coerce=int, validators=[DataRequired()], choices=[])
     submit = SubmitField('Сохранить')
 
 
@@ -70,7 +70,7 @@ class WarehouseCellForm(FlaskForm):
 
 class DocumentItemForm(FlaskForm):
     """Форма строки документа (используется внутри DocumentForm)"""
-    product_id = SelectField('Товар', coerce=int, validators=[DataRequired()])
+    product_id = SelectField('Товар', coerce=int, validators=[DataRequired()], choices=[])
     quantity = FloatField('Количество', validators=[DataRequired(), NumberRange(min=0.01)])
     price = FloatField('Цена', validators=[DataRequired(), NumberRange(min=0)])
 
@@ -82,7 +82,7 @@ class DocumentForm(FlaskForm):
         ('expense', 'Расходная накладная')
     ], validators=[DataRequired()])
     doc_date = DateField('Дата документа', default=date.today, validators=[DataRequired()])
-    supplier_id = SelectField('Поставщик/Контрагент', coerce=int, validators=[Optional()])
+    supplier_id = SelectField('Поставщик/Контрагент', coerce=int, validators=[Optional()], choices=[])
     comment = TextAreaField('Комментарий', validators=[Length(max=500)])
     
     # Динамический список товаров
@@ -93,8 +93,8 @@ class DocumentForm(FlaskForm):
 
 class StockFilterForm(FlaskForm):
     """Форма фильтрации остатков"""
-    product_id = SelectField('Товар', coerce=int, validators=[Optional()])
-    cell_id = SelectField('Ячейка', coerce=int, validators=[Optional()])
+    product_id = SelectField('Товар', coerce=int, validators=[Optional()], choices=[])
+    cell_id = SelectField('Ячейка', coerce=int, validators=[Optional()], choices=[])
     min_quantity = FloatField('Мин. количество', validators=[Optional(), NumberRange(min=0)])
     submit = SubmitField('Применить фильтр')
 

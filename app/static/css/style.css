@@ -5,10 +5,16 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    margin: 0;
+    padding: 0;
 }
 
 .footer {
     margin-top: auto;
+    width: 100%;
+    background-color: #f8f9fa;
+    padding: 1rem 0;
+    text-align: center;
 }
 
 /* Карточки на главной */
@@ -41,18 +47,184 @@ body {
 .badge {
     font-size: 0.85em;
     padding: 0.35em 0.65em;
+    display: inline-block;
+    white-space: nowrap;
 }
 
 /* Формы */
 .form-label {
     font-weight: 500;
     color: #495057;
+    display: block;
+    margin-bottom: 0.5rem;
 }
 
-.required-field::after {
-    content: "*";
-    color: red;
-    margin-left: 4px;
+.form-control, .form-select {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #212529;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+}
+
+/* Кнопки */
+.btn {
+    display: inline-block;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid transparent;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 0.2rem;
+}
+
+.btn-group {
+    display: inline-flex;
+    gap: 0.25rem;
+}
+
+/* ===== МОДАЛЬНЫЕ ОКНА - ПОЛНОЕ ИСПРАВЛЕНИЕ ===== */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1050;
+    display: none;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    outline: 0;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal.show {
+    display: block;
+}
+
+.modal-dialog {
+    position: relative;
+    width: auto;
+    margin: 1.75rem auto;
+    max-width: 500px;
+    pointer-events: none;
+}
+
+.modal-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid rgba(0,0,0,0.2);
+    border-radius: 0.3rem;
+    outline: 0;
+    pointer-events: auto;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+}
+
+.modal-header {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.modal-header .btn-close {
+    padding: 0.5rem;
+    margin: -0.5rem -0.5rem -0.5rem auto;
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat;
+    border: 0;
+    border-radius: 0.25rem;
+    opacity: 0.5;
+    width: 1em;
+    height: 1em;
+    cursor: pointer;
+}
+
+.modal-title {
+    margin-bottom: 0;
+    line-height: 1.5;
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+.modal-body {
+    position: relative;
+    flex: 1 1 auto;
+    padding: 1rem;
+}
+
+.modal-body p {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    display: block;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.modal-body strong {
+    font-weight: 700;
+    display: inline;
+}
+
+.modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0.75rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.modal-footer > * {
+    margin: 0.25rem;
+}
+
+.modal-footer form {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+}
+
+/* Затемнение фона */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1040;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000;
+}
+
+.modal-backdrop.show {
+    opacity: 0.5;
+}
+
+/* Адаптивность для модальных окон */
+@media (min-width: 576px) {
+    .modal-dialog {
+        max-width: 500px;
+        margin: 1.75rem auto;
+    }
 }
 
 /* Анимация загрузки */
@@ -73,7 +245,7 @@ body {
 
 /* Для печати */
 @media print {
-    .btn, .footer, .navbar {
+    .btn, .footer, .navbar, .modal {
         display: none !important;
     }
     
@@ -81,4 +253,22 @@ body {
         box-shadow: none !important;
         border: 1px solid #ddd;
     }
+}
+
+/* Исправление для текста в модальных окнах */
+.modal-body p {
+    display: block;
+    width: 100%;
+    line-height: 1.5;
+}
+
+.modal-body strong {
+    display: inline;
+    font-weight: 700;
+}
+
+/* Убираем вертикальное отображение */
+p, strong, span, div {
+    white-space: normal;
+    word-break: normal;
 }

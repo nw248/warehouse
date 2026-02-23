@@ -84,7 +84,7 @@
                         <td class="text-end">
                             {% set total = product.balances|sum(attribute='quantity') %}
                             {% if total > 0 %}
-                                <span class="badge bg-success">{{ total }}</span>
+                                <span class="badge bg-success">{{ total|round(2) }}</span>
                             {% else %}
                                 <span class="badge bg-secondary">0</span>
                             {% endif %}
@@ -99,33 +99,15 @@
                                class="btn btn-sm btn-outline-primary" title="Редактировать">
                                 <i class="fas fa-edit"></i>
                             </a>
+                            
+                            <!-- Подтверждение удаления через стандартное окно браузера -->
                             <button type="button" class="btn btn-sm btn-outline-danger" 
-                                    data-bs-toggle="modal" data-bs-target="#deleteModal{{ product.id }}"
-                                    title="Удалить">
+                                    onclick="if(confirm('Вы уверены, что хотите удалить товар {{ product.name }}? Это действие нельзя отменить!')) { 
+                                        document.getElementById('delete-form-{{ product.id }}').submit(); 
+                                    }" title="Удалить">
                                 <i class="fas fa-trash"></i>
                             </button>
-                            
-                            <!-- Модальное окно удаления -->
-                            <div class="modal fade" id="deleteModal{{ product.id }}" tabindex="-1">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">Подтверждение удаления</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <p>Вы уверены, что хотите удалить товар <strong>{{ product.name }}</strong>?</p>
-                                            <p class="text-danger">Это действие нельзя отменить!</p>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                                            <form action="{{ url_for('products.product_delete', id=product.id) }}" method="POST">
-                                                <button type="submit" class="btn btn-danger">Удалить</button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <form id="delete-form-{{ product.id }}" action="{{ url_for('products.product_delete', id=product.id) }}" method="POST" style="display: none;"></form>
                             {% endif %}
                         </td>
                     </tr>

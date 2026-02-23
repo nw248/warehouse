@@ -57,66 +57,98 @@ def document_create():
         return redirect(url_for('documents.document_list'))
     
     form = DocumentForm()
-    form.supplier_id.choices = [(0, '-- Не выбран --')] + [
-        (s.id, s.name) for s in Supplier.query.all()
-    ]
     
-    if form.validate_on_submit():
-        # Генерация номера документа
-        today = datetime.now()
-        prefix = 'ПН' if form.doc_type.data == 'income' else 'РН'
-        count = Document.query.filter(
-            Document.doc_number.like(f'{prefix}-{today.strftime("%Y%m")}%')
-        ).count() + 1
-        doc_number = f"{prefix}-{today.strftime('%Y%m')}-{count:04d}"
+    # Заполняем select поля
+    suppliers = Supplier.query.all()
+    form.supplier_id.choices = [(0, '-- Не выбран --')] + [(s.id, s.name) for s in suppliers]
+    
+    products = Product.query.all()
+    
+    if request.method == 'POST':
+        print("POST данные:", request.form)  # Отладка
         
-        document = Document(
-            doc_type=form.doc_type.data,
-            doc_number=doc_number,
-            doc_date=form.doc_date.data,
-            supplier_id=form.supplier_id.data if form.supplier_id.data != 0 else None,
-            author_id=current_user.id,
-            comment=form.comment.data,
-            status='draft'
-        )
-        
-        db.session.add(document)
-        db.session.flush()
-        
-        # Обрабатываем 5 фиксированных строк
+        # Проверяем, есть ли товары
         has_items = False
         for i in range(5):
-            product_id = request.form.get(f'product_{i}', type=int)
-            quantity = request.form.get(f'quantity_{i}', type=float)
-            price = request.form.get(f'price_{i}', type=float)
-            
-            if product_id and quantity and quantity > 0:
-                item = DocumentItem(
-                    document_id=document.id,
-                    product_id=product_id,
-                    quantity=quantity,
-                    price=price
-                )
-                db.session.add(item)
+            product_id = request.form.get(f'product_{i}')
+            quantity = request.form.get(f'quantity_{i}')
+            if product_id and quantity and float(quantity) > 0:
                 has_items = True
+                break
         
         if not has_items:
-            db.session.rollback()
             flash('Добавьте хотя бы один товар в документ', 'danger')
             return render_template('documents/form.html',
                                   title='Новый документ',
                                   form=form,
-                                  products=Product.query.all(),
+                                  products=products,
                                   edit_mode=False)
         
-        db.session.commit()
-        flash(f'Документ №{doc_number} создан', 'success')
-        return redirect(url_for('documents.document_view', id=document.id))
+        try:
+            # Генерация номера документа
+            today = datetime.now()
+            prefix = 'ПН' if form.doc_type.data == 'income' else 'РН'
+            
+            # Считаем количество документов за текущий месяц
+            count = Document.query.filter(
+                Document.doc_number.like(f'{prefix}-{today.strftime("%Y%m")}%')
+            ).count() + 1
+            
+            doc_number = f"{prefix}-{today.strftime('%Y%m')}-{count:04d}"
+            
+            # Создаем документ
+            document = Document(
+                doc_type=form.doc_type.data,
+                doc_number=doc_number,
+                doc_date=form.doc_date.data,
+                supplier_id=form.supplier_id.data if form.supplier_id.data != 0 else None,
+                author_id=current_user.id,
+                comment=form.comment.data,
+                status='draft'
+            )
+            
+            db.session.add(document)
+            db.session.flush()  # Получаем ID документа
+            
+            # Добавляем товары
+            items_added = 0
+            for i in range(5):
+                product_id = request.form.get(f'product_{i}')
+                quantity = request.form.get(f'quantity_{i}')
+                price = request.form.get(f'price_{i}')
+                
+                if product_id and quantity and price and float(quantity) > 0:
+                    item = DocumentItem(
+                        document_id=document.id,
+                        product_id=int(product_id),
+                        quantity=float(quantity),
+                        price=float(price)
+                    )
+                    db.session.add(item)
+                    items_added += 1
+            
+            if items_added == 0:
+                db.session.rollback()
+                flash('Добавьте хотя бы один товар в документ', 'danger')
+                return render_template('documents/form.html',
+                                      title='Новый документ',
+                                      form=form,
+                                      products=products,
+                                      edit_mode=False)
+            
+            db.session.commit()
+            flash(f'Документ №{doc_number} успешно создан', 'success')
+            return redirect(url_for('documents.document_view', id=document.id))
+            
+        except Exception as e:
+            db.session.rollback()
+            print("Ошибка при создании документа:", str(e))
+            flash(f'Ошибка при создании документа: {str(e)}', 'danger')
     
     return render_template('documents/form.html',
                           title='Новый документ',
                           form=form,
-                          products=Product.query.all(),
+                          products=products,
                           edit_mode=False)
 
 
@@ -135,47 +167,55 @@ def document_edit(id):
         return redirect(url_for('documents.document_view', id=id))
     
     form = DocumentForm(obj=document)
-    form.supplier_id.choices = [(0, '-- Не выбран --')] + [
-        (s.id, s.name) for s in Supplier.query.all()
-    ]
     
-    if form.validate_on_submit():
-        document.doc_date = form.doc_date.data
-        document.supplier_id = form.supplier_id.data if form.supplier_id.data != 0 else None
-        document.comment = form.comment.data
-        
-        # Удаляем старые строки
-        DocumentItem.query.filter_by(document_id=document.id).delete()
-        
-        # Добавляем новые из формы
-        has_items = False
-        for i in range(5):
-            product_id = request.form.get(f'product_{i}', type=int)
-            quantity = request.form.get(f'quantity_{i}', type=float)
-            price = request.form.get(f'price_{i}', type=float)
+    # Заполняем select поля
+    suppliers = Supplier.query.all()
+    form.supplier_id.choices = [(0, '-- Не выбран --')] + [(s.id, s.name) for s in suppliers]
+    
+    products = Product.query.all()
+    
+    if request.method == 'POST':
+        try:
+            document.doc_date = form.doc_date.data
+            document.supplier_id = form.supplier_id.data if form.supplier_id.data != 0 else None
+            document.comment = form.comment.data
             
-            if product_id and quantity and quantity > 0:
-                item = DocumentItem(
-                    document_id=document.id,
-                    product_id=product_id,
-                    quantity=quantity,
-                    price=price
-                )
-                db.session.add(item)
-                has_items = True
-        
-        if not has_items:
-            flash('Добавьте хотя бы один товар в документ', 'danger')
-            return redirect(url_for('documents.document_edit', id=id))
-        
-        db.session.commit()
-        flash(f'Документ №{document.doc_number} обновлен', 'success')
-        return redirect(url_for('documents.document_view', id=id))
+            # Удаляем старые строки
+            DocumentItem.query.filter_by(document_id=document.id).delete()
+            
+            # Добавляем новые
+            items_added = 0
+            for i in range(5):
+                product_id = request.form.get(f'product_{i}')
+                quantity = request.form.get(f'quantity_{i}')
+                price = request.form.get(f'price_{i}')
+                
+                if product_id and quantity and price and float(quantity) > 0:
+                    item = DocumentItem(
+                        document_id=document.id,
+                        product_id=int(product_id),
+                        quantity=float(quantity),
+                        price=float(price)
+                    )
+                    db.session.add(item)
+                    items_added += 1
+            
+            if items_added == 0:
+                flash('Добавьте хотя бы один товар в документ', 'danger')
+                return redirect(url_for('documents.document_edit', id=id))
+            
+            db.session.commit()
+            flash(f'Документ №{document.doc_number} обновлен', 'success')
+            return redirect(url_for('documents.document_view', id=id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Ошибка при обновлении: {str(e)}', 'danger')
     
     return render_template('documents/form.html',
                           title=f'Редактирование: {document.doc_number}',
                           form=form,
-                          products=Product.query.all(),
+                          products=products,
                           document=document,
                           edit_mode=True)
 

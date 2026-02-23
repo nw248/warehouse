@@ -4,6 +4,7 @@ from app import db
 from app.models import Product, Category, Supplier, WarehouseCell, StockBalance
 from app.forms import ProductForm, CategoryForm, SupplierForm, WarehouseCellForm, StockFilterForm
 from app.services.stock_service import StockService
+from sqlalchemy.exc import IntegrityError
 
 bp = Blueprint('products', __name__)
 
@@ -146,20 +147,30 @@ def product_delete(id):
     
     product = Product.query.get_or_404(id)
     
-    # Проверка, есть ли остатки или движения по товару
-    if product.balances.count() > 0:
-        flash('Нельзя удалить товар, по которому есть остатки на складе', 'danger')
-        return redirect(url_for('products.product_list'))
+    try:
+        # Проверка, есть ли остатки по товару
+        balances = StockBalance.query.filter_by(product_id=id).count()
+        if balances > 0:
+            flash(f'Нельзя удалить товар "{product.name}" - есть остатки на складе', 'danger')
+            return redirect(url_for('products.product_list'))
+        
+        # Проверка, есть ли движения по товару в документах
+        if product.document_items.count() > 0:
+            flash(f'Нельзя удалить товар "{product.name}" - есть движения в документах', 'danger')
+            return redirect(url_for('products.product_list'))
+        
+        name = product.name
+        db.session.delete(product)
+        db.session.commit()
+        flash(f'Товар "{name}" удален', 'success')
+        
+    except IntegrityError as e:
+        db.session.rollback()
+        flash(f'Ошибка: товар используется в других записях', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ошибка при удалении: {str(e)}', 'danger')
     
-    if product.document_items.count() > 0:
-        flash('Нельзя удалить товар, который участвует в документах', 'danger')
-        return redirect(url_for('products.product_list'))
-    
-    name = product.name
-    db.session.delete(product)
-    db.session.commit()
-    
-    flash(f'Товар "{name}" удален', 'success')
     return redirect(url_for('products.product_list'))
 
 
@@ -167,16 +178,36 @@ def product_delete(id):
 @login_required
 def product_movement(id):
     """История движения товара"""
+    from app.models import Document, DocumentItem
+    
     product = Product.query.get_or_404(id)
     
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    # Получаем все движения по товару
+    items = DocumentItem.query.filter_by(product_id=id).join(Document).filter(
+        Document.status == 'posted'
+    ).order_by(Document.doc_date).all()
     
-    movements = StockService.get_product_movement(
-        product_id=id,
-        start_date=start_date,
-        end_date=end_date
-    )
+    movements = []
+    running_balance = 0
+    
+    # Считаем бегущий остаток
+    for item in items:
+        if item.document.doc_type == 'income':
+            running_balance += float(item.quantity)
+        else:
+            running_balance -= float(item.quantity)
+        
+        movements.append({
+            'date': item.document.doc_date,
+            'doc_number': item.document.doc_number,
+            'doc_type': item.document.doc_type,
+            'doc_type_name': 'Приход' if item.document.doc_type == 'income' else 'Расход',
+            'quantity': float(item.quantity),
+            'price': float(item.price),
+            'total': float(item.quantity * item.price),
+            'balance': running_balance,
+            'supplier': item.document.supplier.name if item.document.supplier else '-'
+        })
     
     return render_template('products/movement.html',
                           title=f'Движение: {product.name}',
@@ -446,11 +477,18 @@ def stock_balance():
     cell_id = request.args.get('cell_id', 0, type=int)
     min_quantity = request.args.get('min_quantity', type=float)
     
-    balances = StockService.get_stock_balance(
-        product_id=product_id if product_id != 0 else None,
-        cell_id=cell_id if cell_id != 0 else None,
-        min_quantity=min_quantity
-    )
+    query = StockBalance.query
+    
+    if product_id and product_id != 0:
+        query = query.filter_by(product_id=product_id)
+    
+    if cell_id and cell_id != 0:
+        query = query.filter_by(cell_id=cell_id)
+    
+    balances = query.all()
+    
+    if min_quantity:
+        balances = [b for b in balances if b.quantity >= min_quantity]
     
     return render_template('products/stock.html',
                           title='Остатки товаров',
@@ -459,36 +497,3 @@ def stock_balance():
                           product_id=product_id,
                           cell_id=cell_id,
                           min_quantity=min_quantity)
-
-
-# ============== API ДЛЯ AJAX ==============
-
-@bp.route('/api/products')
-@login_required
-def api_products():
-    """API для получения списка товаров (для AJAX)"""
-    products = Product.query.all()
-    return jsonify([{
-        'id': p.id,
-        'article': p.article,
-        'name': p.name,
-        'unit': p.unit,
-        'price': float(p.price)
-    } for p in products])
-
-
-@bp.route('/api/products/<int:id>/stock')
-@login_required
-def api_product_stock(id):
-    """API для получения остатков по товару"""
-    balances = StockBalance.query.filter_by(product_id=id).all()
-    total = sum(b.quantity for b in balances)
-    
-    return jsonify({
-        'product_id': id,
-        'total': float(total),
-        'by_cells': [{
-            'cell': b.cell.name,
-            'quantity': float(b.quantity)
-        } for b in balances]
-    })
