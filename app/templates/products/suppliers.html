@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Поставщики{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1><i class="fas fa-truck"></i> Поставщики</h1>
+    {% if current_user.is_manager() %}
+    <a href="{{ url_for('products.supplier_create') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Новый поставщик
+    </a>
+    {% endif %}
+</div>
+
+<div class="row">
+    {% for supplier in suppliers %}
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h5 class="card-title">{{ supplier.name }}</h5>
+                    <div>
+                        <span class="badge bg-info">ИНН: {{ supplier.inn or 'не указан' }}</span>
+                    </div>
+                </div>
+                
+                <p class="card-text mt-2">
+                    {% if supplier.contact_person %}
+                    <i class="fas fa-user"></i> {{ supplier.contact_person }}<br>
+                    {% endif %}
+                    {% if supplier.phone %}
+                    <i class="fas fa-phone"></i> {{ supplier.phone }}<br>
+                    {% endif %}
+                    {% if supplier.email %}
+                    <i class="fas fa-envelope"></i> {{ supplier.email }}<br>
+                    {% endif %}
+                    {% if supplier.address %}
+                    <i class="fas fa-map-marker-alt"></i> {{ supplier.address }}
+                    {% endif %}
+                </p>
+                
+                <p class="card-text">
+                    <small class="text-muted">
+                        Товаров: {{ supplier.products.count() }} | 
+                        Документов: {{ supplier.documents.count() }}
+                    </small>
+                </p>
+                
+                {% if current_user.is_manager() %}
+                <div class="btn-group">
+                    <a href="{{ url_for('products.supplier_edit', id=supplier.id) }}" 
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                            data-bs-toggle="modal" data-bs-target="#deleteModal{{ supplier.id }}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+                
+                <!-- Модальное окно удаления -->
+                <div class="modal fade" id="deleteModal{{ supplier.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Подтверждение удаления</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p>Вы уверены, что хотите удалить поставщика <strong>{{ supplier.name }}</strong>?</p>
+                                {% if supplier.products.count() > 0 %}
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    У этого поставщика есть товары! Удаление невозможно.
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                {% if supplier.products.count() == 0 %}
+                                <form action="{{ url_for('products.supplier_delete', id=supplier.id) }}" method="POST">
+                                    <button type="submit" class="btn btn-danger">Удалить</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

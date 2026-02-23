@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Товары{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1><i class="fas fa-box"></i> Товары</h1>
+    {% if current_user.is_manager() %}
+    <a href="{{ url_for('products.product_create') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Новый товар
+    </a>
+    {% endif %}
+</div>
+
+<!-- Фильтры -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Поиск</label>
+                <input type="text" name="search" class="form-control" 
+                       value="{{ search }}" placeholder="Название или артикул">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Категория</label>
+                <select name="category_id" class="form-select">
+                    <option value="">Все категории</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category == cat.id %}selected{% endif %}>
+                        {{ cat.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Поставщик</label>
+                <select name="supplier_id" class="form-select">
+                    <option value="">Все поставщики</option>
+                    {% for sup in suppliers %}
+                    <option value="{{ sup.id }}" {% if selected_supplier == sup.id %}selected{% endif %}>
+                        {{ sup.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> Применить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Список товаров -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Артикул</th>
+                        <th>Наименование</th>
+                        <th>Категория</th>
+                        <th>Поставщик</th>
+                        <th>Ед.изм.</th>
+                        <th class="text-end">Цена</th>
+                        <th class="text-end">Остаток</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products.items %}
+                    <tr>
+                        <td><strong>{{ product.article }}</strong></td>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.category.name if product.category else '-' }}</td>
+                        <td>{{ product.supplier.name if product.supplier else '-' }}</td>
+                        <td>{{ product.unit }}</td>
+                        <td class="text-end">{{ product.price|round(2) }} ₽</td>
+                        <td class="text-end">
+                            {% set total = product.balances|sum(attribute='quantity') %}
+                            {% if total > 0 %}
+                                <span class="badge bg-success">{{ total }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">0</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('products.product_movement', id=product.id) }}" 
+                               class="btn btn-sm btn-outline-info" title="Движение">
+                                <i class="fas fa-chart-line"></i>
+                            </a>
+                            {% if current_user.is_manager() %}
+                            <a href="{{ url_for('products.product_edit', id=product.id) }}" 
+                               class="btn btn-sm btn-outline-primary" title="Редактировать">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                    data-bs-toggle="modal" data-bs-target="#deleteModal{{ product.id }}"
+                                    title="Удалить">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            
+                            <!-- Модальное окно удаления -->
+                            <div class="modal fade" id="deleteModal{{ product.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Подтверждение удаления</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Вы уверены, что хотите удалить товар <strong>{{ product.name }}</strong>?</p>
+                                            <p class="text-danger">Это действие нельзя отменить!</p>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                            <form action="{{ url_for('products.product_delete', id=product.id) }}" method="POST">
+                                                <button type="submit" class="btn btn-danger">Удалить</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Пагинация -->
+        {% if products.pages > 1 %}
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                {% if products.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('products.product_list', page=products.prev_num, search=search, category_id=selected_category, supplier_id=selected_supplier) }}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in products.iter_pages() %}
+                    {% if page_num %}
+                        <li class="page-item {% if page_num == products.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('products.product_list', page=page_num, search=search, category_id=selected_category, supplier_id=selected_supplier) }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if products.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('products.product_list', page=products.next_num, search=search, category_id=selected_category, supplier_id=selected_supplier) }}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
