@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Профиль{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-user"></i> Информация о пользователе</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr>
+                        <th>Имя пользователя:</th>
+                        <td>{{ user.username }}</td>
+                    </tr>
+                    <tr>
+                        <th>Полное имя:</th>
+                        <td>{{ user.full_name or 'Не указано' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Email:</th>
+                        <td>{{ user.email }}</td>
+                    </tr>
+                    <tr>
+                        <th>Роль:</th>
+                        <td>
+                            {% if user.role == 'admin' %}
+                                <span class="badge bg-danger">Администратор</span>
+                            {% elif user.role == 'manager' %}
+                                <span class="badge bg-primary">Менеджер</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Кладовщик</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Дата регистрации:</th>
+                        <td>{{ user.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-history"></i> Последние действия</h5>
+            </div>
+            <div class="card-body">
+                {% if user.documents_created.count() > 0 %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>№ документа</th>
+                                <th>Дата</th>
+                                <th>Тип</th>
+                                <th>Статус</th>
+                                <th>Сумма</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in user.documents_created.order_by(Document.created_at.desc()).limit(10) %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('documents.document_view', id=doc.id) }}">
+                                        {{ doc.doc_number }}
+                                    </a>
+                                </td>
+                                <td>{{ doc.doc_date.strftime('%d.%m.%Y') }}</td>
+                                <td>
+                                    {% if doc.doc_type == 'income' %}
+                                        <span class="badge bg-success">Приход</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Расход</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if doc.status == 'draft' %}
+                                        <span class="badge bg-secondary">Черновик</span>
+                                    {% elif doc.status == 'posted' %}
+                                        <span class="badge bg-primary">Проведён</span>
+                                    {% else %}
+                                        <span class="badge bg-dark">Отменён</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ doc.total_amount()|round(2) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">Пользователь ещё не создавал документов</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
