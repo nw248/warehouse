@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Остатки товаров{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1><i class="fas fa-cubes"></i> Остатки товаров</h1>
+    <a href="{{ url_for('reports.export_stock') }}" class="btn btn-success">
+        <i class="fas fa-download"></i> Экспорт в CSV
+    </a>
+</div>
+
+<!-- Фильтры -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Товар</label>
+                <select name="product_id" class="form-select">
+                    <option value="0">Все товары</option>
+                    {% for p in form.product_id.choices[1:] %}
+                    <option value="{{ p[0] }}" {% if product_id == p[0] %}selected{% endif %}>
+                        {{ p[1] }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Ячейка</label>
+                <select name="cell_id" class="form-select">
+                    <option value="0">Все ячейки</option>
+                    {% for c in form.cell_id.choices[1:] %}
+                    <option value="{{ c[0] }}" {% if cell_id == c[0] %}selected{% endif %}>
+                        {{ c[1] }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Мин. количество</label>
+                <input type="number" name="min_quantity" class="form-control" 
+                       value="{{ min_quantity or '' }}" step="0.01" min="0">
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> Применить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Остатки -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Ячейка</th>
+                        <th>Артикул</th>
+                        <th>Наименование</th>
+                        <th>Категория</th>
+                        <th class="text-end">Количество</th>
+                        <th class="text-end">Цена</th>
+                        <th class="text-end">Сумма</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for balance in balances %}
+                    <tr>
+                        <td><span class="badge bg-secondary">{{ balance.cell.name }}</span></td>
+                        <td><strong>{{ balance.product.article }}</strong></td>
+                        <td>{{ balance.product.name }}</td>
+                        <td>{{ balance.product.category.name if balance.product.category else '-' }}</td>
+                        <td class="text-end">{{ balance.quantity }} {{ balance.product.unit }}</td>
+                        <td class="text-end">{{ balance.product.price|round(2) }} ₽</td>
+                        <td class="text-end"><strong>{{ (balance.quantity * balance.product.price)|round(2) }} ₽</strong></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            Нет данных по остаткам
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

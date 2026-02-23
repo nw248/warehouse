@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Документ №{{ document.doc_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>
+        <i class="fas fa-file-invoice"></i> 
+        Документ №{{ document.doc_number }}
+    </h1>
+    <div>
+        <a href="{{ url_for('documents.document_list') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> К списку
+        </a>
+        {% if document.is_draft() and current_user.is_manager() %}
+        <a href="{{ url_for('documents.document_edit', id=document.id) }}" class="btn btn-warning">
+            <i class="fas fa-edit"></i> Редактировать
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Шапка документа -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3">
+                <strong>Тип документа:</strong><br>
+                {% if document.doc_type == 'income' %}
+                    <span class="badge bg-success fs-6">Приходная накладная</span>
+                {% else %}
+                    <span class="badge bg-danger fs-6">Расходная накладная</span>
+                {% endif %}
+            </div>
+            <div class="col-md-2">
+                <strong>Дата:</strong><br>
+                {{ document.doc_date.strftime('%d.%m.%Y') }}
+            </div>
+            <div class="col-md-3">
+                <strong>Контрагент:</strong><br>
+                {{ document.supplier.name if document.supplier else 'Не указан' }}
+            </div>
+            <div class="col-md-2">
+                <strong>Статус:</strong><br>
+                {% if document.status == 'draft' %}
+                    <span class="badge bg-secondary fs-6">Черновик</span>
+                {% elif document.status == 'posted' %}
+                    <span class="badge bg-primary fs-6">Проведён</span>
+                {% else %}
+                    <span class="badge bg-dark fs-6">Отменён</span>
+                {% endif %}
+            </div>
+            <div class="col-md-2">
+                <strong>Автор:</strong><br>
+                {{ document.author.username if document.author else '-' }}
+            </div>
+        </div>
+        
+        {% if document.comment %}
+        <div class="row mt-3">
+            <div class="col">
+                <strong>Комментарий:</strong><br>
+                {{ document.comment }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Табличная часть -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="mb-0">Товары в документе</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>№</th>
+                        <th>Артикул</th>
+                        <th>Наименование</th>
+                        <th class="text-end">Количество</th>
+                        <th class="text-end">Цена</th>
+                        <th class="text-end">Сумма</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in document.items %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ item.product.article }}</td>
+                        <td>{{ item.product.name }}</td>
+                        <td class="text-end">{{ item.quantity }} {{ item.product.unit }}</td>
+                        <td class="text-end">{{ item.price|round(2) }} ₽</td>
+                        <td class="text-end">{{ (item.quantity * item.price)|round(2) }} ₽</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="fw-bold">
+                        <td colspan="5" class="text-end">ИТОГО:</td>
+                        <td class="text-end">{{ document.total_amount()|round(2) }} ₽</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Кнопки действий -->
+{% if current_user.is_manager() %}
+<div class="row">
+    <div class="col">
+        {% if document.is_draft() %}
+        <form action="{{ url_for('documents.document_post', id=document.id) }}" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-success" 
+                    onclick="return confirm('Провести документ? Это изменит остатки на складе.')">
+                <i class="fas fa-check"></i> Провести документ
+            </button>
+        </form>
+        
+        <form action="{{ url_for('documents.document_delete', id=document.id) }}" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-danger" 
+                    onclick="return confirm('Удалить документ? Это действие нельзя отменить.')">
+                <i class="fas fa-trash"></i> Удалить
+            </button>
+        </form>
+        
+        {% elif document.is_posted() %}
+        <form action="{{ url_for('documents.document_cancel', id=document.id) }}" method="POST" class="d-inline">
+            <button type="submit" class="btn btn-warning"
+                    onclick="return confirm('Отменить документ? Это вернет остатки в исходное состояние.')">
+                <i class="fas fa-undo"></i> Отменить документ
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
