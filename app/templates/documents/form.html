@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-file-invoice"></i> {{ title }}</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="documentForm">
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Шапка документа -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            {{ form.doc_type.label(class="form-label") }}
+                            {{ form.doc_type(class="form-select" + (' is-invalid' if form.doc_type.errors else ''), id="docType") }}
+                            {% for error in form.doc_type.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            {{ form.doc_date.label(class="form-label") }}
+                            {{ form.doc_date(class="form-control" + (' is-invalid' if form.doc_date.errors else ''), type="date") }}
+                            {% for error in form.doc_date.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            {{ form.supplier_id.label(class="form-label") }}
+                            {{ form.supplier_id(class="form-select" + (' is-invalid' if form.supplier_id.errors else '')) }}
+                            {% for error in form.supplier_id.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.comment.label(class="form-label") }}
+                        {{ form.comment(class="form-control" + (' is-invalid' if form.comment.errors else ''), rows=2) }}
+                        {% for error in form.comment.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Табличная часть (товары) - 5 фиксированных строк -->
+                    <h5 class="mb-3">Товары в документе</h5>
+                    
+                    <div class="table-responsive mb-3">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>№</th>
+                                    <th>Товар</th>
+                                    <th class="text-end">Количество</th>
+                                    <th class="text-end">Цена</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for i in range(5) %}
+                                <tr>
+                                    <td>{{ i + 1 }}</td>
+                                    <td>
+                                        <select name="product_{{ i }}" class="form-select">
+                                            <option value="">-- Выберите товар --</option>
+                                            {% for product in products %}
+                                            <option value="{{ product.id }}" 
+                                                    {% if edit_mode and document.items[i] and document.items[i].product_id == product.id %}selected{% endif %}>
+                                                {{ product.article }} - {{ product.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" name="quantity_{{ i }}" 
+                                               class="form-control text-end" 
+                                               value="{% if edit_mode and document.items[i] %}{{ document.items[i].quantity }}{% endif %}"
+                                               step="0.01" min="0">
+                                    </td>
+                                    <td>
+                                        <input type="number" name="price_{{ i }}" 
+                                               class="form-control text-end" 
+                                               value="{% if edit_mode and document.items[i] %}{{ document.items[i].price }}{% endif %}"
+                                               step="0.01" min="0">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Для добавления более 5 позиций создайте несколько документов.
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Кнопки сохранения -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('documents.document_list') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Назад
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> 
+                            {% if edit_mode %}Сохранить изменения{% else %}Создать документ{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

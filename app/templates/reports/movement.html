@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Движение товара{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>
+        <i class="fas fa-chart-line"></i> 
+        Движение товара: {{ product.name }}
+    </h1>
+    <a href="{{ url_for('reports.turnover_report') }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> К обороту
+    </a>
+</div>
+
+<!-- Информация о товаре -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-2">
+                <strong>Артикул:</strong><br>
+                {{ product.article }}
+            </div>
+            <div class="col-md-2">
+                <strong>Категория:</strong><br>
+                {{ product.category.name if product.category else '-' }}
+            </div>
+            <div class="col-md-2">
+                <strong>Ед. измерения:</strong><br>
+                {{ product.unit }}
+            </div>
+            <div class="col-md-2">
+                <strong>Текущая цена:</strong><br>
+                {{ product.price|round(2) }} ₽
+            </div>
+            <div class="col-md-2">
+                <strong>Текущий остаток:</strong><br>
+                {% if movements %}
+                    {{ movements[-1].balance|round(2) }} {{ product.unit }}
+                {% else %}
+                    0
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Фильтр по датам -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Дата с</label>
+                <input type="date" name="date_from" class="form-control" value="{{ date_from or '' }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Дата по</label>
+                <input type="date" name="date_to" class="form-control" value="{{ date_to or '' }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> Применить
+                </button>
+                {% if date_from or date_to %}
+                <a href="{{ url_for('reports.product_movement', product_id=product.id) }}" 
+                   class="btn btn-secondary ms-2">
+                    <i class="fas fa-times"></i> Сбросить
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- История движения -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">История движения</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Документ</th>
+                        <th>Тип</th>
+                        <th>Контрагент</th>
+                        <th class="text-end">Приход</th>
+                        <th class="text-end">Расход</th>
+                        <th class="text-end">Цена</th>
+                        <th class="text-end">Сумма</th>
+                        <th class="text-end">Остаток</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for move in movements %}
+                    <tr>
+                        <td>{{ move.date.strftime('%d.%m.%Y') }}</td>
+                        <td>
+                            <a href="{{ url_for('documents.document_view', id=move.doc_number) }}">
+                                {{ move.doc_number }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if move.doc_type == 'income' %}
+                                <span class="badge bg-success">Приход</span>
+                            {% else %}
+                                <span class="badge bg-danger">Расход</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ move.supplier }}</td>
+                        <td class="text-end">
+                            {% if move.doc_type == 'income' %}
+                                <span class="text-success">{{ move.quantity|round(2) }} {{ product.unit }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if move.doc_type == 'expense' %}
+                                <span class="text-danger">{{ move.quantity|round(2) }} {{ product.unit }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ move.price|round(2) }} ₽</td>
+                        <td class="text-end">{{ move.total|round(2) }} ₽</td>
+                        <td class="text-end"><strong>{{ move.balance|round(2) }} {{ product.unit }}</strong></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted">
+                            Нет движений по товару за выбранный период
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

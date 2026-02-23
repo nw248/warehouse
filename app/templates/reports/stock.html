@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Отчет по остаткам{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1><i class="fas fa-cubes"></i> Отчет по остаткам товаров</h1>
+    <div>
+        <a href="{{ url_for('reports.export_stock') }}" class="btn btn-success">
+            <i class="fas fa-download"></i> Экспорт в CSV
+        </a>
+        <button onclick="window.print()" class="btn btn-secondary">
+            <i class="fas fa-print"></i> Печать
+        </button>
+    </div>
+</div>
+
+<!-- Информация о отчете -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3">
+                <strong>Дата формирования:</strong><br>
+                {{ generated_at.strftime('%d.%m.%Y %H:%M') }}
+            </div>
+            <div class="col-md-3">
+                <strong>Всего позиций:</strong><br>
+                {{ total_items }}
+            </div>
+            <div class="col-md-3">
+                <strong>Общее количество:</strong><br>
+                {{ total_quantity|round(2) }}
+            </div>
+            <div class="col-md-3">
+                <strong>Общая сумма:</strong><br>
+                {{ total_value|round(2) }} ₽
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Таблица остатков -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Артикул</th>
+                        <th>Наименование</th>
+                        <th>Категория</th>
+                        <th class="text-end">Количество</th>
+                        <th class="text-end">Средняя цена</th>
+                        <th class="text-end">Сумма</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in report_data %}
+                    <tr>
+                        <td><strong>{{ item.article }}</strong></td>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.category }}</td>
+                        <td class="text-end">{{ item.total_quantity|round(2) }} {{ item.unit }}</td>
+                        <td class="text-end">{{ item.avg_price|round(2) }} ₽</td>
+                        <td class="text-end">{{ item.total_value|round(2) }} ₽</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light fw-bold">
+                    <tr>
+                        <td colspan="3">ИТОГО:</td>
+                        <td class="text-end">{{ total_quantity|round(2) }}</td>
+                        <td class="text-end"></td>
+                        <td class="text-end">{{ total_value|round(2) }} ₽</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
