@@ -98,7 +98,7 @@
                     <tr>
                         <td>{{ move.date.strftime('%d.%m.%Y') }}</td>
                         <td>
-                            <a href="{{ url_for('documents.document_view', id=move.doc_number) }}">
+                            <a href="{{ url_for('documents.document_view', id=move.doc_id) }}">
                                 {{ move.doc_number }}
                             </a>
                         </td>

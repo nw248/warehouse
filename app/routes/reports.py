@@ -241,9 +241,12 @@ def product_movement(product_id):
         else:
             running_balance -= float(item.quantity)
         
+        # ВАЖНО: добавляем поле document_id или id документа
         movements.append({
             'date': item.document.doc_date,
             'doc_number': item.document.doc_number,
+            'doc_id': item.document.id,  # Это поле нужно для ссылки
+            'document_id': item.document.id,  # Добавим еще и так для надежности
             'doc_type': item.document.doc_type,
             'doc_type_name': 'Приход' if item.document.doc_type == 'income' else 'Расход',
             'quantity': float(item.quantity),
@@ -252,6 +255,10 @@ def product_movement(product_id):
             'balance': running_balance,
             'supplier': item.document.supplier.name if item.document.supplier else '-'
         })
+    
+    # Отладка - выведем первый элемент, чтобы увидеть структуру
+    if movements:
+        print("Первый элемент movements:", movements[0].keys())
     
     return render_template('reports/movement.html',
                           title=f'Движение товара: {product.name}',

@@ -1,5 +1,5 @@
 from app import db
-from app.models import StockBalance, Document, DocumentItem, Product
+from app.models import StockBalance, Document, DocumentItem, Product, WarehouseCell
 from datetime import datetime
 from decimal import Decimal
 
@@ -11,6 +11,7 @@ class StockService:
         """
         Обработка приходного документа:
         - Увеличивает остатки по каждому товару
+        - Переводит документ в статус "проведён"
         """
         if document.status != 'draft':
             raise ValueError(f'Документ {document.doc_number} не в статусе черновика')
@@ -19,16 +20,19 @@ class StockService:
             raise ValueError('Метод предназначен только для приходных документов')
         
         try:
+            # Начинаем транзакцию
             for item in document.items:
                 # Ищем или создаём запись остатка
                 balance = StockBalance.query.filter_by(
                     product_id=item.product_id,
-                    cell_id=1  # По умолчанию ячейка №1
+                    cell_id=1  # По умолчанию ячейка №1, в реальной системе нужно выбирать
                 ).first()
                 
                 if balance:
+                    # Увеличиваем существующий остаток
                     balance.quantity += item.quantity
                 else:
+                    # Создаём новую запись остатка
                     balance = StockBalance(
                         product_id=item.product_id,
                         cell_id=1,
@@ -36,20 +40,24 @@ class StockService:
                     )
                     db.session.add(balance)
             
+            # Меняем статус документа
             document.status = 'posted'
             document.posted_at = datetime.utcnow()
+            
             db.session.commit()
             return True, "Документ успешно проведён"
             
         except Exception as e:
             db.session.rollback()
-            return False, f"Ошибка: {str(e)}"
+            return False, f"Ошибка при проведении документа: {str(e)}"
     
     @staticmethod
     def process_expense_document(document):
         """
         Обработка расходного документа:
-        - Проверяет наличие и уменьшает остатки
+        - Проверяет наличие товара
+        - Уменьшает остатки
+        - Переводит документ в статус "проведён"
         """
         if document.status != 'draft':
             raise ValueError(f'Документ {document.doc_number} не в статусе черновика')
@@ -58,7 +66,7 @@ class StockService:
             raise ValueError('Метод предназначен только для расходных документов')
         
         try:
-            # Проверка наличия
+            # Сначала проверяем наличие всех товаров
             for item in document.items:
                 balance = StockBalance.query.filter_by(
                     product_id=item.product_id,
@@ -69,20 +77,23 @@ class StockService:
                     product = Product.query.get(item.product_id)
                     available = balance.quantity if balance else 0
                     raise ValueError(
-                        f'Недостаточно товара {product.name}. '
+                        f'Недостаточно товара {product.name} (арт. {product.article}). '
                         f'Требуется: {item.quantity}, доступно: {available}'
                     )
             
-            # Списание
+            # Если всё есть - списываем
             for item in document.items:
                 balance = StockBalance.query.filter_by(
                     product_id=item.product_id,
                     cell_id=1
                 ).first()
+                
                 balance.quantity -= item.quantity
             
+            # Меняем статус документа
             document.status = 'posted'
             document.posted_at = datetime.utcnow()
+            
             db.session.commit()
             return True, "Документ успешно проведён"
             
@@ -91,34 +102,46 @@ class StockService:
             return False, str(e)
         except Exception as e:
             db.session.rollback()
-            return False, f"Ошибка: {str(e)}"
+            return False, f"Ошибка при проведении документа: {str(e)}"
     
     @staticmethod
     def cancel_document(document):
-        """Отмена проведённого документа"""
+        """
+        Отмена проведённого документа:
+        - Для прихода: уменьшает остатки
+        - Для расхода: увеличивает остатки
+        """
         if document.status != 'posted':
-            raise ValueError(f'Документ не в статусе "проведён"')
+            raise ValueError(f'Документ {document.doc_number} не в статусе "проведён"')
         
         try:
             if document.doc_type == 'income':
-                # Отмена прихода - списываем
+                # Отмена прихода - списываем товары
                 for item in document.items:
                     balance = StockBalance.query.filter_by(
                         product_id=item.product_id,
                         cell_id=1
                     ).first()
-                    if balance:
-                        balance.quantity -= item.quantity
-            else:
-                # Отмена расхода - возвращаем
+                    
+                    if not balance or balance.quantity < item.quantity:
+                        raise ValueError(
+                            f'Невозможно отменить документ: недостаточно товара для списания'
+                        )
+                    
+                    balance.quantity -= item.quantity
+                    
+            else:  # expense
+                # Отмена расхода - возвращаем товары
                 for item in document.items:
                     balance = StockBalance.query.filter_by(
                         product_id=item.product_id,
                         cell_id=1
                     ).first()
+                    
                     if balance:
                         balance.quantity += item.quantity
                     else:
+                        # Если записи не было (странно, но вдруг), создаём
                         balance = StockBalance(
                             product_id=item.product_id,
                             cell_id=1,
@@ -128,9 +151,61 @@ class StockService:
             
             document.status = 'cancelled'
             document.cancelled_at = datetime.utcnow()
+            
             db.session.commit()
             return True, "Документ успешно отменён"
             
         except Exception as e:
             db.session.rollback()
-            return False, f"Ошибка: {str(e)}"
+            return False, f"Ошибка при отмене документа: {str(e)}"
+    
+    @staticmethod
+    def get_stock_balance(product_id=None, cell_id=None, min_quantity=None):
+        """
+        Получение остатков с фильтрацией
+        """
+        query = StockBalance.query
+        
+        if product_id:
+            query = query.filter_by(product_id=product_id)
+        
+        if cell_id:
+            query = query.filter_by(cell_id=cell_id)
+        
+        balances = query.all()
+        
+        if min_quantity:
+            balances = [b for b in balances if b.quantity >= min_quantity]
+        
+        return balances
+    
+    @staticmethod
+    def get_product_movement(product_id, start_date=None, end_date=None):
+        """
+        Получение истории движения товара
+        """
+        # Сначала получаем все DocumentItem для данного товара
+        items = DocumentItem.query.filter_by(product_id=product_id).all()
+        
+        movements = []
+        for item in items:
+            doc = Document.query.get(item.document_id)
+            if doc and doc.status == 'posted':  # Только проведенные документы
+                # Проверяем фильтры по дате
+                if start_date and doc.doc_date < start_date:
+                    continue
+                if end_date and doc.doc_date > end_date:
+                    continue
+                    
+                movements.append({
+                    'date': doc.doc_date,
+                    'doc_number': doc.doc_number,
+                    'doc_id': doc.id,
+                    'doc_type': doc.doc_type,
+                    'quantity': float(item.quantity),
+                    'price': float(item.price),
+                    'total': float(item.quantity * item.price),
+                    'supplier': doc.supplier.name if doc.supplier else '-'
+                })
+        
+        return sorted(movements, key=lambda x: x['date'])

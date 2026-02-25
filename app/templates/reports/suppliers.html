@@ -89,11 +89,13 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in report_data[:5] %}
-                            <tr>
-                                <td>{{ item.name }}</td>
-                                <td class="text-end">{{ item.total_purchases|round(2) }} ₽</td>
-                            </tr>
+                            {% for item in report_data %}
+                                {% if loop.index <= 5 %}
+                                <tr>
+                                    <td>{{ item.name }}</td>
+                                    <td class="text-end">{{ item.total_purchases|round(2) }} ₽</td>
+                                </tr>
+                                {% endif %}
                             {% endfor %}
                         </tbody>
                     </table>
@@ -117,11 +119,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in report_data|sort(attribute='deliveries_count', reverse=True)[:5] %}
-                            <tr>
-                                <td>{{ item.name }}</td>
-                                <td class="text-end">{{ item.deliveries_count }}</td>
-                            </tr>
+                            {% set sorted_suppliers = report_data|sort(attribute='deliveries_count', reverse=true) %}
+                            {% for item in sorted_suppliers %}
+                                {% if loop.index <= 5 %}
+                                <tr>
+                                    <td>{{ item.name }}</td>
+                                    <td class="text-end">{{ item.deliveries_count }}</td>
+                                </tr>
+                                {% endif %}
                             {% endfor %}
                         </tbody>
                     </table>
